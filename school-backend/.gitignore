@@ -1,0 +1,19 @@
+# Environment config files containing sensitive credentials
+.env
+.env.local
+.env.production
+.env.development
+
+# Node dependencies
+node_modules/
+
+# Local logs and output
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Test coverage results
+coverage/
+.nyc_output/
