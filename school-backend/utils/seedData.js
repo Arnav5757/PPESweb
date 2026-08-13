@@ -115,7 +115,21 @@ const seedData = async () => {
   };
 
   try {
-    const studentPasswordHash = await bcrypt.hash("student123", 10);
+    const seedUserPassword = process.env.SEED_USER_PASSWORD;
+    const isProduction = process.env.NODE_ENV === "production";
+    let shouldSeedDemoAccounts = true;
+
+    if (isProduction) {
+      shouldSeedDemoAccounts = false;
+    } else if (!seedUserPassword) {
+      console.warn("⚠️ Warning: SEED_USER_PASSWORD is not set. Skipping demo/test student and teacher account seeding.");
+      shouldSeedDemoAccounts = false;
+    }
+
+    let studentPasswordHash;
+    if (shouldSeedDemoAccounts) {
+      studentPasswordHash = await bcrypt.hash(seedUserPassword, 10);
+    }
 
     if (dbStatus.isMongoConnected) {
       // 1. Notices
@@ -140,78 +154,80 @@ const seedData = async () => {
       }
 
       // 3. Student (Alice Vance)
-      const studentExists = await Student.findOne({ firstName: "Alice", lastName: "Vance" });
-      if (!studentExists) {
-        const student = new Student({
-          ...defaultStudentData,
-          name: "Alice Vance",
-          admissionNumber: "ADM-2026-000001"
-        });
-        const savedStudent = await student.save();
-
-        // Linked login user
-        const userExists = await User.findOne({ email: "alice@student.com" });
-        if (!userExists) {
-          const user = new User({
+      if (shouldSeedDemoAccounts) {
+        const studentExists = await Student.findOne({ firstName: "Alice", lastName: "Vance" });
+        if (!studentExists) {
+          const student = new Student({
+            ...defaultStudentData,
             name: "Alice Vance",
-            email: "alice@student.com",
-            username: "alice",
-            password: studentPasswordHash,
-            role: "student",
-            studentProfile: savedStudent._id,
-            status: "Active"
+            admissionNumber: "ADM-2026-000001"
           });
-          await user.save();
-        }
+          const savedStudent = await student.save();
 
-        // Seed Teacher profile & User for test
-        const Teacher = require("../models/Teacher");
-        let teacherId = "mem-teacher-1";
-        const teacherExists = await Teacher.findOne({ email: "feynman@physics.edu" });
-        if (!teacherExists) {
-          const teacher = new Teacher({
-            name: "Professor Richard Feynman",
-            email: "feynman@physics.edu",
-            phone: "9876543210",
-            qualification: "Ph.D. in Physics",
-            specialization: "Quantum Electrodynamics"
-          });
-          const savedTeacher = await teacher.save();
-          teacherId = savedTeacher._id;
-        } else {
-          teacherId = teacherExists._id;
-        }
+          // Linked login user
+          const userExists = await User.findOne({ email: "alice@student.com" });
+          if (!userExists) {
+            const user = new User({
+              name: "Alice Vance",
+              email: "alice@student.com",
+              username: "alice",
+              password: studentPasswordHash,
+              role: "student",
+              studentProfile: savedStudent._id,
+              status: "Active"
+            });
+            await user.save();
+          }
 
-        const teacherUserExists = await User.findOne({ email: "teacher@pareek.edu" });
-        if (!teacherUserExists) {
-          const teacherUser = new User({
-            name: "Professor Feynman",
-            email: "teacher@pareek.edu",
-            username: "teacher",
-            password: studentPasswordHash,
-            role: "teacher",
-            teacherProfile: teacherId,
-            status: "Active"
-          });
-          await teacherUser.save();
-        }
+          // Seed Teacher profile & User for test
+          const Teacher = require("../models/Teacher");
+          let teacherId = "mem-teacher-1";
+          const teacherExists = await Teacher.findOne({ email: "feynman@physics.edu" });
+          if (!teacherExists) {
+            const teacher = new Teacher({
+              name: "Professor Richard Feynman",
+              email: "feynman@physics.edu",
+              phone: "9876543210",
+              qualification: "Ph.D. in Physics",
+              specialization: "Quantum Electrodynamics"
+            });
+            const savedTeacher = await teacher.save();
+            teacherId = savedTeacher._id;
+          } else {
+            teacherId = teacherExists._id;
+          }
 
-        // Suspended student user
-        const suspendedUserExists = await User.findOne({ email: "suspended_alice@student.com" });
-        if (!suspendedUserExists) {
-          const suspendedUser = new User({
-            name: "Suspended Alice",
-            email: "suspended_alice@student.com",
-            username: "suspended_alice",
-            password: studentPasswordHash,
-            role: "student",
-            studentProfile: savedStudent._id,
-            status: "Suspended"
-          });
-          await suspendedUser.save();
-        }
+          const teacherUserExists = await User.findOne({ email: "teacher@pareek.edu" });
+          if (!teacherUserExists) {
+            const teacherUser = new User({
+              name: "Professor Feynman",
+              email: "teacher@pareek.edu",
+              username: "teacher",
+              password: studentPasswordHash,
+              role: "teacher",
+              teacherProfile: teacherId,
+              status: "Active"
+            });
+            await teacherUser.save();
+          }
 
-        console.log("Seeded default Student (Alice Vance), Teacher (Feynman), and linked Users in MongoDB 🎓");
+          // Suspended student user
+          const suspendedUserExists = await User.findOne({ email: "suspended_alice@student.com" });
+          if (!suspendedUserExists) {
+            const suspendedUser = new User({
+              name: "Suspended Alice",
+              email: "suspended_alice@student.com",
+              username: "suspended_alice",
+              password: studentPasswordHash,
+              role: "student",
+              studentProfile: savedStudent._id,
+              status: "Suspended"
+            });
+            await suspendedUser.save();
+          }
+
+          console.log("Seeded default Student (Alice Vance), Teacher (Feynman), and linked Users in MongoDB 🎓");
+        }
       }
     } else {
       // Seed In-Memory
@@ -231,75 +247,77 @@ const seedData = async () => {
       }
 
 
-      const studentExists = inMemoryStore.students.find(s => s.firstName === "Alice" && s.lastName === "Vance");
-      if (!studentExists) {
-        const inMemStudent = {
-          _id: "mem-student-1",
-          ...defaultStudentData,
-          name: "Alice Vance",
-          admissionNumber: "ADM-2026-000001"
-        };
-        inMemoryStore.students.push(inMemStudent);
-
-        const userExists = inMemoryStore.users.find(u => u.email === "alice@student.com");
-        if (!userExists) {
-          inMemoryStore.users.push({
-            _id: "mem-u-student-1",
+      if (shouldSeedDemoAccounts) {
+        const studentExists = inMemoryStore.students.find(s => s.firstName === "Alice" && s.lastName === "Vance");
+        if (!studentExists) {
+          const inMemStudent = {
+            _id: "mem-student-1",
+            ...defaultStudentData,
             name: "Alice Vance",
-            email: "alice@student.com",
-            username: "alice",
-            password: studentPasswordHash,
-            role: "student",
-            studentProfile: "mem-student-1",
-            status: "Active"
-          });
-        }
+            admissionNumber: "ADM-2026-000001"
+          };
+          inMemoryStore.students.push(inMemStudent);
 
-        // Seed teacher profile in Memory
-        inMemoryStore.teachers = inMemoryStore.teachers || [];
-        const teacherProfileExists = inMemoryStore.teachers.find(t => t.email === "feynman@physics.edu");
-        if (!teacherProfileExists) {
-          inMemoryStore.teachers.push({
-            _id: "mem-teacher-1",
-            name: "Professor Richard Feynman",
-            email: "feynman@physics.edu",
-            phone: "9876543210",
-            qualification: "Ph.D. in Physics",
-            specialization: "Quantum Electrodynamics"
-          });
-        }
+          const userExists = inMemoryStore.users.find(u => u.email === "alice@student.com");
+          if (!userExists) {
+            inMemoryStore.users.push({
+              _id: "mem-u-student-1",
+              name: "Alice Vance",
+              email: "alice@student.com",
+              username: "alice",
+              password: studentPasswordHash,
+              role: "student",
+              studentProfile: "mem-student-1",
+              status: "Active"
+            });
+          }
 
-        // Seed teacher user in Memory
-        const teacherUserExists = inMemoryStore.users.find(u => u.email === "teacher@pareek.edu");
-        if (!teacherUserExists) {
-          inMemoryStore.users.push({
-            _id: "mem-u-teacher-1",
-            name: "Professor Feynman",
-            email: "teacher@pareek.edu",
-            username: "teacher",
-            password: studentPasswordHash,
-            role: "teacher",
-            teacherProfile: "mem-teacher-1",
-            status: "Active"
-          });
-        }
+          // Seed teacher profile in Memory
+          inMemoryStore.teachers = inMemoryStore.teachers || [];
+          const teacherProfileExists = inMemoryStore.teachers.find(t => t.email === "feynman@physics.edu");
+          if (!teacherProfileExists) {
+            inMemoryStore.teachers.push({
+              _id: "mem-teacher-1",
+              name: "Professor Richard Feynman",
+              email: "feynman@physics.edu",
+              phone: "9876543210",
+              qualification: "Ph.D. in Physics",
+              specialization: "Quantum Electrodynamics"
+            });
+          }
 
-        // Seed suspended student user in Memory
-        const suspendedUserExists = inMemoryStore.users.find(u => u.email === "suspended_alice@student.com");
-        if (!suspendedUserExists) {
-          inMemoryStore.users.push({
-            _id: "mem-u-student-suspended",
-            name: "Suspended Alice",
-            email: "suspended_alice@student.com",
-            username: "suspended_alice",
-            password: studentPasswordHash,
-            role: "student",
-            studentProfile: "mem-student-1",
-            status: "Suspended"
-          });
-        }
+          // Seed teacher user in Memory
+          const teacherUserExists = inMemoryStore.users.find(u => u.email === "teacher@pareek.edu");
+          if (!teacherUserExists) {
+            inMemoryStore.users.push({
+              _id: "mem-u-teacher-1",
+              name: "Professor Feynman",
+              email: "teacher@pareek.edu",
+              username: "teacher",
+              password: studentPasswordHash,
+              role: "teacher",
+              teacherProfile: "mem-teacher-1",
+              status: "Active"
+            });
+          }
 
-        console.log("Seeded default Student, Teacher, and suspended accounts in Memory 🎓");
+          // Seed suspended student user in Memory
+          const suspendedUserExists = inMemoryStore.users.find(u => u.email === "suspended_alice@student.com");
+          if (!suspendedUserExists) {
+            inMemoryStore.users.push({
+              _id: "mem-u-student-suspended",
+              name: "Suspended Alice",
+              email: "suspended_alice@student.com",
+              username: "suspended_alice",
+              password: studentPasswordHash,
+              role: "student",
+              studentProfile: "mem-student-1",
+              status: "Suspended"
+            });
+          }
+
+          console.log("Seeded default Student, Teacher, and suspended accounts in Memory 🎓");
+        }
       }
     }
 

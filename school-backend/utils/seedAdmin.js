@@ -3,8 +3,13 @@ const User = require("../models/User");
 const { dbStatus, inMemoryStore } = require("../config/db");
 
 const seedAdmin = async () => {
-  const adminEmail = "admin@pareek.edu";
-  const defaultPassword = "admin123";
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const defaultPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminEmail || !defaultPassword) {
+    console.warn("⚠️ Warning: ADMIN_EMAIL or ADMIN_PASSWORD is not set. Skipping administrator seeding.");
+    return;
+  }
 
   try {
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
@@ -19,7 +24,7 @@ const seedAdmin = async () => {
           role: "admin"
         });
         await newAdmin.save();
-        console.log("Seeded Administrator Account in MongoDB: admin@pareek.edu / admin123 🔑");
+        console.log(`Seeded Administrator Account in MongoDB: ${adminEmail} 🔑`);
       }
     } else {
       const adminExists = inMemoryStore.users.find(u => u.email === adminEmail);
@@ -31,7 +36,7 @@ const seedAdmin = async () => {
           password: hashedPassword,
           role: "admin"
         });
-        console.log("Seeded Administrator Account in Memory: admin@pareek.edu / admin123 🔑");
+        console.log(`Seeded Administrator Account in Memory: ${adminEmail} 🔑`);
       }
     }
   } catch (err) {
